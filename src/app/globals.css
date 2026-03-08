@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Fjord Blue-Gray palette (from QuoteKit) */
+  --color-fjord-50:  #F4F7F9;
+  --color-fjord-100: #D4E0E6;
+  --color-fjord-200: #B5C5CF;
+  --color-fjord-300: #9AB1BD;
+  --color-fjord-400: #7A94A3;
+  --color-fjord-500: #6B8494;
+  --color-fjord-600: #546A7B;
+  --color-fjord-700: #3A5060;
+  --color-fjord-800: #2F4755;
+  --color-fjord-900: #243740;
+  --color-fjord-950: #1C2B33;
+
+  /* Semantic aliases */
+  --color-background: #F4F7F9;
+  --color-foreground: #1C2B33;
+  --color-muted:      #546A7B;
+  --color-border:     #D4E0E6;
+  --color-surface:    #FFFFFF;
+  --color-success:    #059669;
+  --color-warning:    #D97706;
+  --color-error:      #DC2626;
+
+  /* Font families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Shadows (minimal — only floating elements) */
+  --shadow-dropdown: 0 4px 16px rgba(28,43,51,0.12);
+  --shadow-modal: 0 20px 60px rgba(28,43,51,0.2);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
