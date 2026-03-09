@@ -22,6 +22,7 @@ type Loop = {
   id: string;
   projectId: string;
   name: string;
+  prompt: string;
   interval: string;
   enabled: boolean;
   cronExpression: string;
@@ -128,10 +129,97 @@ function getLoopHealth(loop: Loop): {
   return { status: "healthy", label: "" };
 }
 
+type PromptSection = {
+  title: string;
+  content: string;
+};
+
+function parsePromptSections(prompt: string): PromptSection[] {
+  const sections: PromptSection[] = [];
+  const lines = prompt.split("\n");
+  let currentTitle = "";
+  let currentContent: string[] = [];
+
+  for (const line of lines) {
+    const h2Match = line.match(/^## (.+)/);
+    const h3Match = line.match(/^### (.+)/);
+    const heading = h2Match || h3Match;
+
+    if (heading) {
+      if (currentTitle) {
+        sections.push({ title: currentTitle, content: currentContent.join("\n").trim() });
+      }
+      currentTitle = heading[1];
+      currentContent = [];
+    } else if (currentTitle) {
+      currentContent.push(line);
+    }
+  }
+  if (currentTitle) {
+    sections.push({ title: currentTitle, content: currentContent.join("\n").trim() });
+  }
+  return sections;
+}
+
+function LoopDetail({ loop }: { loop: Loop }) {
+  const sections = parsePromptSections(loop.prompt);
+  // Filter out pre-flight and post-run boilerplate — show the interesting task sections
+  const taskSections = sections.filter(
+    (s) =>
+      !s.title.toLowerCase().includes("pre-flight") &&
+      !s.title.toLowerCase().includes("post-run") &&
+      !s.title.toLowerCase().includes("loop control center")
+  );
+
+  return (
+    <div className="border-t border-fjord-100 bg-fjord-50/50">
+      {/* Meta info */}
+      <div className="px-5 py-3 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-muted border-b border-fjord-100">
+        <span>
+          <span className="text-fjord-600 font-medium">ID:</span>{" "}
+          <span className="font-mono">{loop.id.slice(0, 8)}</span>
+        </span>
+        <span>
+          <span className="text-fjord-600 font-medium">Cron:</span>{" "}
+          <span className="font-mono">{loop.cronExpression}</span>
+        </span>
+        <span>
+          <span className="text-fjord-600 font-medium">Prompt:</span>{" "}
+          {loop.prompt.length.toLocaleString()} chars
+        </span>
+      </div>
+
+      {/* Task sections */}
+      {taskSections.map((section, i) => (
+        <details key={i} className="group">
+          <summary className="px-5 py-2.5 text-xs font-medium text-fjord-700 cursor-pointer hover:bg-fjord-50 transition-colors border-b border-fjord-100 flex items-center gap-2">
+            <svg
+              className="w-3 h-3 text-muted transition-transform group-open:rotate-90 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            {section.title}
+          </summary>
+          <div className="px-5 py-3 border-b border-fjord-100">
+            <pre className="text-[11px] text-fjord-700 leading-relaxed whitespace-pre-wrap font-mono overflow-x-auto">
+              {section.content}
+            </pre>
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [expandedLoops, setExpandedLoops] = useState<Set<string>>(new Set());
 
   async function fetchData() {
     const res = await fetch("/api/dashboard");
@@ -268,8 +356,8 @@ export default function DashboardPage() {
                         : "border-l-amber-400";
 
                       return (
+                        <div key={loop.id}>
                         <div
-                          key={loop.id}
                           className={`px-5 py-4 border-b border-fjord-50 last:border-0 border-l-[3px] ${borderColor}`}
                         >
                           {/* Row 1: Name + interval + toggle */}
@@ -355,25 +443,45 @@ export default function DashboardPage() {
                             </p>
                           )}
 
-                          {/* Row 3: Stats */}
-                          <div className="flex items-center gap-4 mt-2 text-[11px] text-muted">
-                            <span>
-                              {loop.runCounts.total} run{loop.runCounts.total !== 1 ? "s" : ""}
-                            </span>
-                            {loop.runCounts.success > 0 && (
-                              <span className="text-emerald-600">
-                                {loop.runCounts.success} passed
+                          {/* Row 3: Stats + Detail toggle */}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-4 text-[11px] text-muted">
+                              <span>
+                                {loop.runCounts.total} run{loop.runCounts.total !== 1 ? "s" : ""}
                               </span>
-                            )}
-                            {loop.runCounts.error > 0 && (
-                              <span className="text-red-500">
-                                {loop.runCounts.error} failed
+                              {loop.runCounts.success > 0 && (
+                                <span className="text-emerald-600">
+                                  {loop.runCounts.success} passed
+                                </span>
+                              )}
+                              {loop.runCounts.error > 0 && (
+                                <span className="text-red-500">
+                                  {loop.runCounts.error} failed
+                                </span>
+                              )}
+                              <span className="text-muted">
+                                since {new Date(loop.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
                               </span>
-                            )}
-                            <span className="text-muted">
-                              since {new Date(loop.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
-                            </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setExpandedLoops((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(loop.id)) {
+                                    next.delete(loop.id);
+                                  } else {
+                                    next.add(loop.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="text-[11px] text-fjord-500 hover:text-fjord-700 transition-colors font-medium"
+                            >
+                              {expandedLoops.has(loop.id) ? "Hide logic" : "View logic"}
+                            </button>
                           </div>
+                        </div>
+                        {expandedLoops.has(loop.id) && <LoopDetail loop={loop} />}
                         </div>
                       );
                     })}

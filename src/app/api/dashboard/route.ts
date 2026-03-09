@@ -12,6 +12,7 @@ export async function GET() {
       id: loops.id,
       projectId: loops.projectId,
       name: loops.name,
+      prompt: loops.prompt,
       interval: loops.interval,
       enabled: loops.enabled,
       cronExpression: loops.cronExpression,
