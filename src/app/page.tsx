@@ -89,6 +89,45 @@ const statusColors: Record<string, string> = {
   skipped: "bg-amber-50 text-amber-600 border-amber-200",
 };
 
+function parseIntervalMs(interval: string): number | null {
+  const match = interval.match(/^(\d+)(m|h|d)$/);
+  if (!match) return null;
+  const value = parseInt(match[1]);
+  const unit = match[2];
+  if (unit === "m") return value * 60 * 1000;
+  if (unit === "h") return value * 60 * 60 * 1000;
+  if (unit === "d") return value * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+function getLoopHealth(loop: Loop): {
+  status: "healthy" | "overdue" | "stale" | "waiting";
+  label: string;
+} {
+  if (!loop.enabled) return { status: "healthy", label: "" };
+
+  const intervalMs = parseIntervalMs(loop.interval);
+  if (!intervalMs) return { status: "healthy", label: "" };
+
+  if (!loop.lastRun) {
+    return { status: "waiting", label: "" };
+  }
+
+  const lastRunTime = new Date(loop.lastRun.startedAt).getTime();
+  const elapsed = Date.now() - lastRunTime;
+
+  // Stale: >3x interval — loop has definitely stopped
+  if (elapsed > intervalMs * 3) {
+    return { status: "stale", label: "Stale — run /sync-loops" };
+  }
+  // Overdue: >1.5x interval — missed at least one cycle
+  if (elapsed > intervalMs * 1.5) {
+    return { status: "overdue", label: "Overdue" };
+  }
+
+  return { status: "healthy", label: "" };
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -215,7 +254,12 @@ export default function DashboardPage() {
                       const hasRun = loop.lastRun !== null;
                       const isError = loop.lastRun?.status === "error";
                       const isSuccess = loop.lastRun?.status === "success";
-                      const borderColor = !hasRun
+                      const health = getLoopHealth(loop);
+                      const borderColor = health.status === "stale"
+                        ? "border-l-red-400"
+                        : health.status === "overdue"
+                        ? "border-l-amber-400"
+                        : !hasRun
                         ? "border-l-fjord-200"
                         : isError
                         ? "border-l-red-400"
@@ -261,7 +305,20 @@ export default function DashboardPage() {
                             </button>
                           </div>
 
-                          {/* Row 2: Last run status */}
+                          {/* Row 2: Health + Last run status */}
+                          {(health.status === "overdue" || health.status === "stale") && (
+                            <div className="mt-2">
+                              <span
+                                className={`inline-block px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
+                                  health.status === "stale"
+                                    ? "bg-red-50 text-red-600 border-red-200"
+                                    : "bg-amber-50 text-amber-600 border-amber-200"
+                                }`}
+                              >
+                                {health.label}
+                              </span>
+                            </div>
+                          )}
                           {hasRun ? (
                             <div className="mt-2">
                               <div className="flex items-center gap-2">
