@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { projects, loops, loopRuns } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, count, sql } from "drizzle-orm";
 
 export async function GET() {
   // Get all projects with their loops and latest run
@@ -15,6 +15,7 @@ export async function GET() {
       interval: loops.interval,
       enabled: loops.enabled,
       cronExpression: loops.cronExpression,
+      createdAt: loops.createdAt,
     })
     .from(loops)
     .orderBy(loops.name);
@@ -31,6 +32,28 @@ export async function GET() {
       .orderBy(desc(loopRuns.startedAt))
       .limit(1);
     if (run) latestRuns[loopId] = run;
+  }
+
+  // Get run counts per loop
+  const runCounts: Record<string, { total: number; success: number; error: number }> = {};
+  if (loopIds.length > 0) {
+    const counts = await db
+      .select({
+        loopId: loopRuns.loopId,
+        status: loopRuns.status,
+        count: count(),
+      })
+      .from(loopRuns)
+      .groupBy(loopRuns.loopId, loopRuns.status);
+
+    for (const row of counts) {
+      if (!runCounts[row.loopId]) {
+        runCounts[row.loopId] = { total: 0, success: 0, error: 0 };
+      }
+      runCounts[row.loopId].total += row.count;
+      if (row.status === "success") runCounts[row.loopId].success += row.count;
+      if (row.status === "error") runCounts[row.loopId].error += row.count;
+    }
   }
 
   // Get recent activity (last 20 runs across all loops)
@@ -67,6 +90,7 @@ export async function GET() {
       .map((l) => ({
         ...l,
         lastRun: latestRuns[l.id] || null,
+        runCounts: runCounts[l.id] || { total: 0, success: 0, error: 0 },
       })),
   }));
 

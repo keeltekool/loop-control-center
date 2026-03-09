@@ -12,6 +12,12 @@ type LoopRun = {
   durationMs: number | null;
 };
 
+type RunCounts = {
+  total: number;
+  success: number;
+  error: number;
+};
+
 type Loop = {
   id: string;
   projectId: string;
@@ -19,7 +25,9 @@ type Loop = {
   interval: string;
   enabled: boolean;
   cronExpression: string;
+  createdAt: string;
   lastRun: LoopRun | null;
+  runCounts: RunCounts;
 };
 
 type Project = {
@@ -198,62 +206,115 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div>
-                    {project.loops.map((loop) => (
-                      <div
-                        key={loop.id}
-                        className="flex items-center justify-between px-5 py-3 border-b border-fjord-50 last:border-0"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-fjord-950">
-                              {loop.name}
-                            </span>
-                            <span className="text-xs text-muted font-mono">
-                              {loop.interval}
-                            </span>
-                            <span
-                              className={`inline-block px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
-                                loop.enabled
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                  : "bg-gray-100 text-gray-500 border-gray-200"
+                    {project.loops.map((loop) => {
+                      const hasRun = loop.lastRun !== null;
+                      const isError = loop.lastRun?.status === "error";
+                      const isSuccess = loop.lastRun?.status === "success";
+                      const borderColor = !hasRun
+                        ? "border-l-fjord-200"
+                        : isError
+                        ? "border-l-red-400"
+                        : isSuccess
+                        ? "border-l-emerald-400"
+                        : "border-l-amber-400";
+
+                      return (
+                        <div
+                          key={loop.id}
+                          className={`px-5 py-4 border-b border-fjord-50 last:border-0 border-l-3 ${borderColor}`}
+                        >
+                          {/* Row 1: Name + interval + toggle */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-fjord-950">
+                                {loop.name}
+                              </span>
+                              <span className="text-xs text-muted font-mono">
+                                {loop.interval}
+                              </span>
+                              <span
+                                className={`inline-block px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
+                                  loop.enabled
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                    : "bg-gray-100 text-gray-500 border-gray-200"
+                                }`}
+                              >
+                                {loop.enabled ? "ON" : "OFF"}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => toggleLoop(loop.id, !loop.enabled)}
+                              className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
+                                loop.enabled ? "bg-emerald-500" : "bg-gray-300"
                               }`}
                             >
-                              {loop.enabled ? "ON" : "OFF"}
-                            </span>
-                          </div>
-                          {loop.lastRun && (
-                            <p className="text-xs text-muted mt-0.5">
                               <span
-                                className={
-                                  loop.lastRun.status === "success"
-                                    ? "text-emerald-600"
-                                    : loop.lastRun.status === "error"
-                                    ? "text-error"
-                                    : "text-muted"
-                                }
-                              >
-                                {loop.lastRun.status === "success" ? "✓" : "✗"}{" "}
-                                {loop.lastRun.summary || loop.lastRun.status}
-                              </span>
-                              {" · "}
-                              {timeAgo(loop.lastRun.startedAt)}
+                                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${
+                                  loop.enabled ? "left-5" : "left-0.5"
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          {/* Row 2: Last run status */}
+                          {hasRun ? (
+                            <div className="mt-2">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-block px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
+                                    statusColors[loop.lastRun!.status] || "bg-gray-100 text-gray-500 border-gray-200"
+                                  }`}
+                                >
+                                  {loop.lastRun!.status}
+                                </span>
+                                <span className="text-xs text-muted">
+                                  {timeAgo(loop.lastRun!.startedAt)}
+                                </span>
+                                {loop.lastRun!.durationMs && (
+                                  <span className="text-xs text-muted font-mono">
+                                    {formatDuration(loop.lastRun!.durationMs)}
+                                  </span>
+                                )}
+                              </div>
+                              {loop.lastRun!.summary && (
+                                <p className="text-xs text-fjord-700 mt-1 leading-relaxed">
+                                  {loop.lastRun!.summary}
+                                </p>
+                              )}
+                              {isError && loop.lastRun!.errorMessage && (
+                                <p className="text-xs text-red-600 mt-1 leading-relaxed">
+                                  {loop.lastRun!.errorMessage}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted mt-2">
+                              Never run — waiting for first execution
                             </p>
                           )}
+
+                          {/* Row 3: Stats */}
+                          <div className="flex items-center gap-4 mt-2 text-[11px] text-muted">
+                            <span>
+                              {loop.runCounts.total} run{loop.runCounts.total !== 1 ? "s" : ""}
+                            </span>
+                            {loop.runCounts.success > 0 && (
+                              <span className="text-emerald-600">
+                                {loop.runCounts.success} passed
+                              </span>
+                            )}
+                            {loop.runCounts.error > 0 && (
+                              <span className="text-red-500">
+                                {loop.runCounts.error} failed
+                              </span>
+                            )}
+                            <span className="text-muted">
+                              since {new Date(loop.createdAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+                            </span>
+                          </div>
                         </div>
-                        <button
-                          onClick={() => toggleLoop(loop.id, !loop.enabled)}
-                          className={`relative w-10 h-5 rounded-full transition-colors ${
-                            loop.enabled ? "bg-emerald-500" : "bg-gray-300"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${
-                              loop.enabled ? "left-5" : "left-0.5"
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
