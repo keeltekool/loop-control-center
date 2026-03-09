@@ -146,20 +146,22 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-fjord-950">Loop Control Center</h1>
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${
-                data.agentOnline
-                  ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                  : "bg-gray-100 text-gray-500 border-gray-200"
-              }`}
-            >
+            {data.recentActivity.length > 0 && (
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  data.agentOnline ? "bg-emerald-500" : "bg-gray-400"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${
+                  data.agentOnline
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                    : "bg-amber-50 text-amber-600 border-amber-200"
                 }`}
-              />
-              Agent {data.agentOnline ? "Online" : "Offline"}
-            </span>
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    data.agentOnline ? "bg-emerald-500" : "bg-amber-500"
+                  }`}
+                />
+                {data.agentOnline ? "Agent Active" : "Agent Idle"}
+              </span>
+            )}
           </div>
           <button
             onClick={syncGitHub}
