@@ -136,6 +136,9 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
+  const activeProjects = data.projects.filter((p) => p.loops.length > 0);
+  const emptyProjects = data.projects.filter((p) => p.loops.length === 0);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6 lg:p-8">
@@ -168,16 +171,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Projects with loops */}
-        {data.projects.length === 0 ? (
+        {activeProjects.length === 0 ? (
           <div className="border border-border rounded-lg bg-white p-8 text-center">
-            <p className="text-muted text-sm">No projects yet.</p>
+            <p className="text-muted text-sm">No loops configured yet.</p>
             <p className="text-muted text-sm mt-1">
-              Click &quot;Sync from GitHub&quot; to import your repos, or create loops via Claude Code.
+              Create loops via Claude Code to get started.
             </p>
           </div>
         ) : (
           <div className="space-y-4 mb-8">
-            {data.projects.map((project) => (
+            {activeProjects.map((project) => (
               <div
                 key={project.id}
                 className="border border-border rounded-lg bg-white overflow-hidden"
@@ -221,7 +224,7 @@ export default function DashboardPage() {
                       return (
                         <div
                           key={loop.id}
-                          className={`px-5 py-4 border-b border-fjord-50 last:border-0 border-l-3 ${borderColor}`}
+                          className={`px-5 py-4 border-b border-fjord-50 last:border-0 border-l-[3px] ${borderColor}`}
                         >
                           {/* Row 1: Name + interval + toggle */}
                           <div className="flex items-center justify-between">
@@ -320,6 +323,22 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Empty projects (collapsed) */}
+        {emptyProjects.length > 0 && (
+          <details className="mb-8">
+            <summary className="text-xs text-muted cursor-pointer hover:text-fjord-600 transition-colors">
+              {emptyProjects.length} project{emptyProjects.length !== 1 ? "s" : ""} without loops
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {emptyProjects.map((p) => (
+                <span key={p.id} className="text-xs text-muted font-mono bg-fjord-50 px-2 py-1 rounded-lg">
+                  {p.name}
+                </span>
+              ))}
+            </div>
+          </details>
         )}
 
         {/* Recent Activity */}
