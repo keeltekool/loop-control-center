@@ -168,6 +168,22 @@ Each CronCreate execution is a fresh Claude context. The wrapped prompt:
 - Render backend cold start: ~50s — prompt wakes it first
 - YouTube OAuth token expires in 7 days (Google "Testing" mode) — will show as 401 error
 
+### SOEL: Substack digest scraper
+| Field | Value |
+|-------|-------|
+| Loop ID | `b4b870cf-6333-4f49-991e-630ca40b515b` |
+| Project ID | `b3db93b2-abfa-4b70-8d81-3515c09e1509` |
+| Interval | 24h (`0 4 * * *` = 6 AM EET) |
+| Status | Enabled |
+
+**What it does:** Reads 11 Substack RSS feeds, scores articles for Claude Code / AI tools relevance (1-10), writes summaries to the SOEL Google Sheet.
+
+**Source list:** `Soel/sources/top_ai_substack_authors.csv` (11 newsletters)
+
+**Sheet:** `1LKyQp9VD4YD3O-ixOQ6yxl-a-Ud_wvTyRABxn_IlugU` → Articles tab
+
+**Key gotcha:** Use raw `gws sheets spreadsheets values append` API for multi-row writes — the `+append --json-values` helper flattens nested arrays via xargs.
+
 ---
 
 ## Dashboard Features
