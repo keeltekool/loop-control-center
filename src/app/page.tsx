@@ -101,6 +101,34 @@ function parseIntervalMs(interval: string): number | null {
   return null;
 }
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function cronToSchedule(cron: string): string {
+  const [min, hour, , , dow] = cron.split(" ");
+
+  // Day-of-week specific (e.g., "33 7 * * 3,6" → "Wed+Sat 7:33")
+  if (dow !== "*") {
+    const days = dow.split(",").map((d) => DAY_NAMES[parseInt(d)] || d).join("+");
+    const time = `${hour}:${min.padStart(2, "0")}`;
+    return `${days} ${time}`;
+  }
+
+  // Every N hours (e.g., "0 */12 * * *" → "every 12h")
+  const hourStep = hour.match(/^\*\/(\d+)$/);
+  if (hourStep) return `every ${hourStep[1]}h`;
+
+  // Every N minutes
+  const minStep = min.match(/^\*\/(\d+)$/);
+  if (minStep) return `every ${minStep[1]}m`;
+
+  // Fixed daily time (e.g., "0 4 * * *" → "daily 4:00")
+  if (dow === "*" && hour !== "*" && !hour.includes("/")) {
+    return `daily ${hour}:${min.padStart(2, "0")}`;
+  }
+
+  return cron;
+}
+
 function getLoopHealth(loop: Loop): {
   status: "healthy" | "overdue" | "stale" | "waiting";
   label: string;
@@ -377,7 +405,7 @@ export default function DashboardPage() {
                                 {loop.name}
                               </span>
                               <span className="text-xs text-muted font-mono">
-                                {loop.interval}
+                                {cronToSchedule(loop.cronExpression)}
                               </span>
                               <span
                                 className={`inline-block px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
