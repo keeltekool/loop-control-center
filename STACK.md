@@ -184,6 +184,29 @@ Each CronCreate execution is a fresh Claude context. The wrapped prompt:
 
 **Key gotcha:** Use raw `gws sheets spreadsheets values append` API for multi-row writes — the `+append --json-values` helper flattens nested arrays via xargs.
 
+### Allekirjoitus: Competitive Scan (manual)
+| Field | Value |
+|-------|-------|
+| Loop ID | `7a6a91d4-91f9-41ed-a9a9-dc27551d9e2b` |
+| Project ID | `ddc0dc8a-da39-4786-b4ba-d5e14235c345` |
+| Interval | `manual` (sentinel — never fires via cron) |
+| Cron | `0 0 29 2 0` (impossible Feb-29 Sunday — never matches) |
+| Status | Enabled, user-triggered only |
+
+**What it does:** Scrapes ~15 Allekirjoitus.fi competitor pages (Visma Sign, Scrive, Dokobit, Signicat) via Cloudflare Browser Rendering with 10s spacing, diffs vs prior sha256 snapshots, and — in the same Claude Code session — classifies each delta as substantive or cosmetic, applies surgical Edit replacements to `brief/MASTER_COMPETITIVE_BRIEF.md`, and prepends Recent Changes entries. First-ever scan is a silent baseline (no log entries).
+
+**Triggered via:** `/allekirjoitus-scan` slash command inside the `Allekirjoitus-benchmark-agent` project directory. NOT via CronCreate — the `manual` interval + impossible cron are sentinels telling `sync-loops` to skip automatic scheduling.
+
+**Endpoints called:**
+- Cloudflare `POST /accounts/{id}/browser-rendering/markdown`
+- Allekirjoitus Neon (separate instance): `sources` / `snapshots` / `scrape_runs`
+- `POST https://loop-control-center.vercel.app/api/loops/{LCC_LOOP_ID}/runs` (this reporter)
+
+**Source management:** Sources managed in `eudi-wallet-tracker` admin via project switcher (federated connection router; EUDI + Allekirjoitus each have their own Neon instance, zero shared DB). Per CLAUDE.md §3.
+
+**Repo:** https://github.com/keeltekool/allekirjoitus-competitive-tracker
+**Public viewer:** https://allekirjoitus-competitive-tracker.vercel.app
+
 ---
 
 ## Dashboard Features
