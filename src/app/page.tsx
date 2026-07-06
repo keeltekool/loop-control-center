@@ -104,7 +104,10 @@ function parseIntervalMs(interval: string): number | null {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function cronToSchedule(cron: string): string {
-  const [min, hour, , , dow] = cron.split(" ");
+  // Guard: non-cron values like "manual" (or missing) crash the 5-field destructure
+  const parts = (cron || "").split(" ");
+  if (parts.length < 5) return cron || "";
+  const [min, hour, , , dow] = parts;
 
   // Day-of-week specific (e.g., "33 7 * * 3,6" → "Wed+Sat 7:33")
   if (dow !== "*") {
