@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       prompt: loops.prompt,
       interval: loops.interval,
       cronExpression: loops.cronExpression,
+      trigger: loops.trigger,
       enabled: loops.enabled,
       createdAt: loops.createdAt,
       updatedAt: loops.updatedAt,
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 // POST — Create a new loop
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { projectId, name, prompt, interval, cronExpression, enabled } = body;
+  const { projectId, name, prompt, interval, cronExpression, trigger, enabled } = body;
 
   if (!projectId || !name || !prompt || !interval || !cronExpression) {
     return NextResponse.json(
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       prompt,
       interval,
       cronExpression,
+      trigger: trigger || null,
       enabled: enabled !== false,
     })
     .returning();

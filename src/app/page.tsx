@@ -26,6 +26,7 @@ type Loop = {
   interval: string;
   enabled: boolean;
   cronExpression: string;
+  trigger: string | null;
   createdAt: string;
   lastRun: LoopRun | null;
   runCounts: RunCounts;
@@ -148,13 +149,12 @@ function getLoopHealth(loop: Loop): {
   const lastRunTime = new Date(loop.lastRun.startedAt).getTime();
   const elapsed = Date.now() - lastRunTime;
 
-  // Stale: >3x interval — loop has definitely stopped
+  // Loops are launched manually one-by-one — labels say "trigger it", never "/sync-loops"
   if (elapsed > intervalMs * 3) {
-    return { status: "stale", label: "Stale — run /sync-loops" };
+    return { status: "stale", label: "Long overdue" };
   }
-  // Overdue: >1.5x interval — missed at least one cycle
   if (elapsed > intervalMs * 1.5) {
-    return { status: "overdue", label: "Overdue" };
+    return { status: "overdue", label: "Due" };
   }
 
   return { status: "healthy", label: "" };
@@ -190,6 +190,37 @@ function parsePromptSections(prompt: string): PromptSection[] {
     sections.push({ title: currentTitle, content: currentContent.join("\n").trim() });
   }
   return sections;
+}
+
+function TriggerChip({ trigger }: { trigger: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(trigger);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Copy — paste into Claude Code to launch this loop"
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-mono transition-colors ${
+        copied
+          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+          : "bg-fjord-50 text-fjord-700 border-fjord-200 hover:border-fjord-400 hover:bg-white"
+      }`}
+    >
+      {copied ? (
+        "copied ✓"
+      ) : (
+        <>
+          <svg className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          {trigger}
+        </>
+      )}
+    </button>
+  );
 }
 
 function LoopDetail({ loop }: { loop: Loop }) {
@@ -307,6 +338,13 @@ export default function DashboardPage() {
   const activeProjects = data.projects.filter((p) => p.loops.length > 0);
   const emptyProjects = data.projects.filter((p) => p.loops.length === 0);
 
+  // Loops past their interval, waiting for a manual trigger — the morning checklist
+  const dueLoops = activeProjects.flatMap((project) =>
+    project.loops
+      .map((loop) => ({ loop, project, health: getLoopHealth(loop) }))
+      .filter(({ health }) => health.status === "overdue" || health.status === "stale")
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6 lg:p-8">
@@ -339,6 +377,43 @@ export default function DashboardPage() {
             {syncing ? "Syncing..." : "Sync from GitHub"}
           </button>
         </div>
+
+        {/* Due now — manual triggers waiting */}
+        {dueLoops.length > 0 && (
+          <div className="mb-6 border border-amber-200 rounded-lg bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-amber-200 bg-amber-50">
+              <h2 className="text-sm font-semibold text-amber-900">Due now</h2>
+              <span className="text-xs text-amber-700">
+                {dueLoops.length} loop{dueLoops.length !== 1 ? "s" : ""} waiting for a manual trigger
+              </span>
+            </div>
+            {dueLoops.map(({ loop, project, health }) => (
+              <div
+                key={loop.id}
+                className="px-5 py-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-amber-100 last:border-0"
+              >
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium text-fjord-950">{loop.name}</span>
+                  <span className="text-xs text-muted">{project.name}</span>
+                  <span
+                    className={`inline-block px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${
+                      health.status === "stale"
+                        ? "bg-red-50 text-red-600 border-red-200"
+                        : "bg-amber-50 text-amber-600 border-amber-200"
+                    }`}
+                  >
+                    {health.label}
+                  </span>
+                </div>
+                {loop.trigger ? (
+                  <TriggerChip trigger={loop.trigger} />
+                ) : (
+                  <span className="text-[10px] text-muted italic">no trigger keyword set</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Projects with loops */}
         {activeProjects.length === 0 ? (
@@ -402,8 +477,8 @@ export default function DashboardPage() {
                           className={`px-5 py-4 border-b border-fjord-50 last:border-0 border-l-[3px] ${borderColor}`}
                         >
                           {/* Row 1: Name + interval + toggle */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2 min-w-0">
                               <span className="text-sm font-medium text-fjord-950">
                                 {loop.name}
                               </span>
@@ -419,6 +494,7 @@ export default function DashboardPage() {
                               >
                                 {loop.enabled ? "ON" : "OFF"}
                               </span>
+                              {loop.trigger && <TriggerChip trigger={loop.trigger} />}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <button

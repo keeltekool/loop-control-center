@@ -16,6 +16,7 @@ export async function GET() {
       interval: loops.interval,
       enabled: loops.enabled,
       cronExpression: loops.cronExpression,
+      trigger: loops.trigger,
       createdAt: loops.createdAt,
     })
     .from(loops)

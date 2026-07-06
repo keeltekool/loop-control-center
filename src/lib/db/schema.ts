@@ -24,6 +24,7 @@ export const loops = pgTable("loops", {
   prompt: text("prompt").notNull(),
   interval: text("interval").notNull(),
   cronExpression: text("cron_expression").notNull(),
+  trigger: text("trigger"), // keyword the owner types in Claude Code to launch this loop manually
   enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

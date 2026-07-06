@@ -40,6 +40,7 @@ export async function PATCH(
   if (body.cronExpression) updates.cronExpression = body.cronExpression;
   if (body.name) updates.name = body.name;
   if (body.prompt) updates.prompt = body.prompt;
+  if (body.trigger !== undefined) updates.trigger = body.trigger || null;
 
   const [row] = await db
     .update(loops)
