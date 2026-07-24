@@ -36,6 +36,18 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ loops: rows });
 }
 
+// Default trigger keyword from the loop name: strip parentheticals, slugify.
+// "VAIB analyze (manual trigger)" → "run loop vaib-analyze"
+function defaultTrigger(name: string): string {
+  const slug = name
+    .replace(/\(.*?\)/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `run loop ${slug}`;
+}
+
 // POST — Create a new loop
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -56,7 +68,8 @@ export async function POST(request: NextRequest) {
       prompt,
       interval,
       cronExpression,
-      trigger: trigger || null,
+      // Every loop gets a copyable trigger chip — callers that forget still get a sane default.
+      trigger: trigger || defaultTrigger(name),
       enabled: enabled !== false,
     })
     .returning();
