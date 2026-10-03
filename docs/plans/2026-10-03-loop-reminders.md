@@ -17,7 +17,7 @@ the owner's machine. A scheduled scorer would score videos before a manual loop 
 - [x] 1.3 idea-radar: drop the transcript step from `youtube-scrape.yml` (the metadata scrape stays on its schedule as
       a collector between manual runs); runbook header + STACK say the loop runs locally.
 - [x] 1.4 radar-check: YouTube Radar moves from `cloud` to `manual` (command chip + cadence).
-- [ ] Gate 1 (partly done 2026-10-03: loop registered 63d77be4, routine off, youtube-scrape.yml dispatch green with 24 sources / 0 errors, radar-check shipped with all 95 checks passing. **Deferred by the owner:** the first real loop run — "Dont run the loop currently".) Original gate: one real `run loop youtube-radar`: transcripts saved > 0, decisions + memo saved, newsletter sent, run
+- [x] Gate 1 (first real run 2026-10-03 at the owner's request: 188 screened, transcripts 186/188, 8 accepted, memo #7, newsletter sent, run recorded in LCC. Earlier: partly done 2026-10-03: loop registered 63d77be4, routine off, youtube-scrape.yml dispatch green with 24 sources / 0 errors, radar-check shipped with all 95 checks passing. **Deferred by the owner:** the first real loop run — "Dont run the loop currently".) Original gate: one real `run loop youtube-radar`: transcripts saved > 0, decisions + memo saved, newsletter sent, run
       recorded in LCC; `youtube-scrape.yml` dispatch green; radar-check shipped through ship.mjs.
 
 ## Phase 2 — Due-loop reminder email (LCC)
