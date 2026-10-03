@@ -27,7 +27,7 @@ the owner's machine. A scheduled scorer would score videos before a manual loop 
 - [x] 2.2 Loop cleanup through the API: intervals — Scrapyard fix 168h, Market Watch 168h, VAIB-X ingest 168h, EE AI
       Watch 336h, Builder/Setup Reflection 336h. Disable (keeps history): CrateDig auto-roll, both SÕEL loops, Meeting
       Transcriber, Mindloop weekly, VAIB analyze, Allekirjoitus scan, Idea Radar Pipeline. Prindipesa jaht and Athlon
-      ingest stay as they are until the owner answers.
+      ingest stay (owner: "let them be there yes, doesnt mean im going to initiate those").
 - [x] 2.3 Missing run reports: the setup-reflection and builder-reflection bridge skills POST their run to LCC;
       backfill Setup Reflection's 2026-09-26 run.
 - [x] 2.4 `GET /api/cron/reminder` (Bearer `CRON_SECRET`, Vercel cron `0 5 * * 1,4` = Mon + Thu 08:00 Tallinn summer
@@ -35,7 +35,7 @@ the owner's machine. A scheduled scorer would score videos before a manual loop 
       Always sends; subject carries the due count. Body: due loops (name, last run, status, trigger command in mono),
       then the rest with their next due date, link to the dashboard.
 - [x] 2.5 `scripts/check-ui-flows.mjs` for LCC: login, Due now matches the due rule, trigger chip copies, 375 + 1440.
-- [ ] Gate 2 (2026-10-03: shipped 641b1f2, ship.mjs PASS incl. check-ui-flows at 375 + 1440; reminder fired on production → Resend accepted, 5 due / 4 coming up; cron registered `0 5 * * 1,4`. Waiting on: the owner confirming the email arrived.): reminder fired once by hand on production → email arrives (owner confirms); check-ui-flows passes;
+- [x] Gate 2 (2026-10-03: shipped 641b1f2, ship.mjs PASS incl. check-ui-flows at 375 + 1440; reminder fired on production → Resend accepted, 5 due / 4 coming up; cron registered `0 5 * * 1,4`. Owner confirmed 2026-10-03: "E-mail was in the box, its nice and accurate". Review fixes 8ae842f shipped, checks pass.): reminder fired once by hand on production → email arrives (owner confirms); check-ui-flows passes;
       ship.mjs passes.
 
 Finish: code-reviewer, /simplify, STACK + memory.
