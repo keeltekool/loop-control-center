@@ -22,20 +22,20 @@ the owner's machine. A scheduled scorer would score videos before a manual loop 
 
 ## Phase 2 — Due-loop reminder email (LCC)
 
-- [ ] 2.1 One due rule for dashboard and email (`src/lib/due.ts`): due once the interval has passed, long overdue at
+- [x] 2.1 One due rule for dashboard and email (`src/lib/due.ts`): due once the interval has passed, long overdue at
       2×, a failed last run is due, an enabled loop that never ran is due. Disabled loops never show.
-- [ ] 2.2 Loop cleanup through the API: intervals — Scrapyard fix 168h, Market Watch 168h, VAIB-X ingest 168h, EE AI
+- [x] 2.2 Loop cleanup through the API: intervals — Scrapyard fix 168h, Market Watch 168h, VAIB-X ingest 168h, EE AI
       Watch 336h, Builder/Setup Reflection 336h. Disable (keeps history): CrateDig auto-roll, both SÕEL loops, Meeting
       Transcriber, Mindloop weekly, VAIB analyze, Allekirjoitus scan, Idea Radar Pipeline. Prindipesa jaht and Athlon
       ingest stay as they are until the owner answers.
-- [ ] 2.3 Missing run reports: the setup-reflection and builder-reflection bridge skills POST their run to LCC;
+- [x] 2.3 Missing run reports: the setup-reflection and builder-reflection bridge skills POST their run to LCC;
       backfill Setup Reflection's 2026-09-26 run.
-- [ ] 2.4 `GET /api/cron/reminder` (Bearer `CRON_SECRET`, Vercel cron `0 5 * * 1,4` = Mon + Thu 08:00 Tallinn summer
+- [x] 2.4 `GET /api/cron/reminder` (Bearer `CRON_SECRET`, Vercel cron `0 5 * * 1,4` = Mon + Thu 08:00 Tallinn summer
       time). Resend (`RESEND_API_KEY`, key `loop-control-center`), from `onboarding@resend.dev` to `REMINDER_EMAIL`.
       Always sends; subject carries the due count. Body: due loops (name, last run, status, trigger command in mono),
       then the rest with their next due date, link to the dashboard.
-- [ ] 2.5 `scripts/check-ui-flows.mjs` for LCC: login, Due now matches the due rule, trigger chip copies, 375 + 1440.
-- [ ] Gate 2: reminder fired once by hand on production → email arrives (owner confirms); check-ui-flows passes;
+- [x] 2.5 `scripts/check-ui-flows.mjs` for LCC: login, Due now matches the due rule, trigger chip copies, 375 + 1440.
+- [ ] Gate 2 (2026-10-03: shipped 641b1f2, ship.mjs PASS incl. check-ui-flows at 375 + 1440; reminder fired on production → Resend accepted, 5 due / 4 coming up; cron registered `0 5 * * 1,4`. Waiting on: the owner confirming the email arrived.): reminder fired once by hand on production → email arrives (owner confirms); check-ui-flows passes;
       ship.mjs passes.
 
 Finish: code-reviewer, /simplify, STACK + memory.
