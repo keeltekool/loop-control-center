@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { loopHealth } from "@/lib/due";
 
 type LoopRun = {
   id: string;
@@ -91,17 +92,6 @@ const statusColors: Record<string, string> = {
   skipped: "bg-amber-50 text-amber-600 border-amber-200",
 };
 
-function parseIntervalMs(interval: string): number | null {
-  const match = interval.match(/^(\d+)(m|h|d)$/);
-  if (!match) return null;
-  const value = parseInt(match[1]);
-  const unit = match[2];
-  if (unit === "m") return value * 60 * 1000;
-  if (unit === "h") return value * 60 * 60 * 1000;
-  if (unit === "d") return value * 24 * 60 * 60 * 1000;
-  return null;
-}
-
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function cronToSchedule(cron: string): string {
@@ -131,33 +121,6 @@ function cronToSchedule(cron: string): string {
   }
 
   return cron;
-}
-
-function getLoopHealth(loop: Loop): {
-  status: "healthy" | "overdue" | "stale" | "waiting";
-  label: string;
-} {
-  if (!loop.enabled) return { status: "healthy", label: "" };
-
-  const intervalMs = parseIntervalMs(loop.interval);
-  if (!intervalMs) return { status: "healthy", label: "" };
-
-  if (!loop.lastRun) {
-    return { status: "waiting", label: "" };
-  }
-
-  const lastRunTime = new Date(loop.lastRun.startedAt).getTime();
-  const elapsed = Date.now() - lastRunTime;
-
-  // Loops are launched manually one-by-one — labels say "trigger it", never "/sync-loops"
-  if (elapsed > intervalMs * 3) {
-    return { status: "stale", label: "Long overdue" };
-  }
-  if (elapsed > intervalMs * 1.5) {
-    return { status: "overdue", label: "Due" };
-  }
-
-  return { status: "healthy", label: "" };
 }
 
 type PromptSection = {
@@ -341,7 +304,7 @@ export default function DashboardPage() {
   // Loops past their interval, waiting for a manual trigger — the morning checklist
   const dueLoops = activeProjects.flatMap((project) =>
     project.loops
-      .map((loop) => ({ loop, project, health: getLoopHealth(loop) }))
+      .map((loop) => ({ loop, project, health: loopHealth(loop) }))
       .filter(({ health }) => health.status === "overdue" || health.status === "stale")
   );
 
@@ -458,7 +421,7 @@ export default function DashboardPage() {
                       const hasRun = loop.lastRun !== null;
                       const isError = loop.lastRun?.status === "error";
                       const isSuccess = loop.lastRun?.status === "success";
-                      const health = getLoopHealth(loop);
+                      const health = loopHealth(loop);
                       const borderColor = health.status === "stale"
                         ? "border-l-red-400"
                         : health.status === "overdue"

@@ -6,9 +6,12 @@ export function middleware(request: NextRequest) {
   // API routes: check Bearer token OR session cookie
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/")) {
     const authHeader = request.headers.get("authorization");
+    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    // Vercel cron sends CRON_SECRET; it only opens the cron routes.
     const hasBearer =
-      authHeader?.startsWith("Bearer ") &&
-      authHeader.slice(7) === process.env.API_KEY;
+      !!bearer &&
+      (bearer === process.env.API_KEY ||
+        (pathname.startsWith("/api/cron/") && bearer === process.env.CRON_SECRET));
     const hasSession =
       request.cookies.get("lcc_session")?.value === "authenticated";
 
