@@ -1,7 +1,7 @@
 # Loop Control Center — STACK.md
 
 > Persistent storage + dashboard for Claude Code scheduled loops.
-> Last updated: 2026-03-09
+> Last updated: 2026-10-03 (due-loop reminder email, loop cleanup)
 
 ---
 
@@ -47,6 +47,9 @@ Dashboard (Vercel)                    Claude Code (local)
 | `DATABASE_URL` | Neon PostgreSQL connection string |
 | `LOGIN_PASSWORD` | Dashboard login password |
 | `API_KEY` | Bearer token for Claude Code API calls |
+| `RESEND_API_KEY` | Resend key `loop-control-center` (sending access) for the reminder email |
+| `CRON_SECRET` | Vercel cron bearer; opens `/api/cron/*` only |
+| `REMINDER_EMAIL` | Where the reminder goes (owner) |
 
 ### Local (`.env.local`)
 Same three vars. The API key here is what Claude Code skills read to authenticate.
@@ -57,6 +60,14 @@ printf 'the-key-value' | npx vercel env add API_KEY production
 ```
 
 ---
+
+## Due-loop reminder (since 2026-10-03)
+
+- **Due rule** (`src/lib/due.ts`, shared by the dashboard and the email): due once the loop's interval has passed since its last run; long overdue at 2×; a failed last run or an enabled loop that never ran is due; off or `manual`-interval loops never are. Manual loops therefore need an hours interval to ever be due.
+- **Email:** Vercel cron `0 5 * * 1,4` → `GET /api/cron/reminder` (Mon + Thu 08:00 Tallinn summer time, 07:00 in winter). Resend from `onboarding@resend.dev` (delivers only to the account's own address, which is the recipient). Always sends; due loops with last run + trigger command, then "Coming up". `?preview=1` renders without sending (API key or session).
+- **Retired loops are switched off, not deleted** (keeps run history): CrateDig auto-roll, both SÕEL loops, Meeting Transcriber, Mindloop weekly, VAIB analyze, Allekirjoitus scan, Idea Radar Pipeline.
+- **Smoke:** `node scripts/check-ui-flows.mjs https://loop-control-center.vercel.app` (login, Due now = email, chip copy, 375 + 1440).
+- **Gotcha:** loops with their own skill (`run setup-reflection`, `run builder-reflection`, `/athlon-ingest`) bypass the `run-loop` launcher, which is what reports runs; an unreported run reads as "never run" in the email. The two reflection bridges now verify their report.
 
 ## Database Schema
 
