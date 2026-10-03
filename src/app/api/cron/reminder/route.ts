@@ -5,7 +5,8 @@ import { isDue, loopHealth, type LoopHealth } from "@/lib/due";
 
 // Twice-weekly reminder (vercel.json cron, Mon + Thu): every enabled loop that is due, when it last ran and the
 // command that starts it, then the rest with their next due date. Always sends, so a missing email means it broke.
-// ?preview=1 returns the email as HTML without sending it. Auth: middleware (CRON_SECRET, API_KEY or a session).
+// ?preview=1 returns the email as HTML without sending it. Auth: middleware (CRON_SECRET, API_KEY or a session);
+// sending also needs a bearer token, so a browser session can preview but never send.
 
 const DASHBOARD = "https://loop-control-center.vercel.app";
 const TZ = "Europe/Tallinn";
@@ -15,14 +16,15 @@ type Row = {
   project: string;
   interval: string;
   trigger: string | null;
-  last_started: string | null;
+  last_ms: number | null; // started_at as epoch ms: the column has no time zone and the driver returns it raw
   last_status: string | null;
 };
 type Item = Row & { health: LoopHealth };
 
 export async function GET(request: NextRequest) {
   const { rows } = await db.execute<Row>(sql`
-    SELECT l.name, p.name AS project, l.interval, l.trigger, r.started_at AS last_started, r.status AS last_status
+    SELECT l.name, p.name AS project, l.interval, l.trigger,
+      extract(epoch FROM r.started_at)::float8 * 1000 AS last_ms, r.status AS last_status
     FROM loops l
     JOIN projects p ON p.id = l.project_id
     LEFT JOIN LATERAL (
@@ -34,12 +36,12 @@ export async function GET(request: NextRequest) {
   const items: Item[] = rows.map((r) => ({
     ...r,
     health: loopHealth(
-      { enabled: true, interval: r.interval, lastRun: r.last_started ? { startedAt: r.last_started, status: r.last_status ?? "" } : null },
+      { enabled: true, interval: r.interval, lastRun: r.last_ms != null ? { startedAt: new Date(Number(r.last_ms)), status: r.last_status ?? "" } : null },
       now,
     ),
   }));
   const rank = { stale: 0, overdue: 1, healthy: 2 };
-  const age = (i: Item) => (i.last_started ? new Date(i.last_started).getTime() : 0);
+  const age = (i: Item) => Number(i.last_ms ?? 0);
   const due = items.filter((i) => isDue(i.health)).sort((a, b) => rank[a.health.status] - rank[b.health.status] || age(a) - age(b));
   const later = items
     .filter((i) => i.health.nextDue)
@@ -54,12 +56,17 @@ export async function GET(request: NextRequest) {
     return new NextResponse(`<!doctype html><title>${esc(subject)}</title>${html}`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }
 
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer /, "");
+  if (!bearer || (bearer !== process.env.CRON_SECRET && bearer !== process.env.API_KEY)) {
+    return NextResponse.json({ error: "Sending needs the cron or API token; a session can only use ?preview=1" }, { status: 403 });
+  }
   const to = process.env.REMINDER_EMAIL;
   const key = process.env.RESEND_API_KEY;
   if (!to || !key) return NextResponse.json({ error: "REMINDER_EMAIL or RESEND_API_KEY is not set" }, { status: 500 });
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    // Vercel can deliver a cron event twice; Resend drops a repeat key within 24 h.
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `reminder-${new Date(now).toISOString().slice(0, 13)}` },
     body: JSON.stringify({ from: "Loop Control Center <onboarding@resend.dev>", to, subject, html }),
   });
   const body = await res.json().catch(() => ({}));
@@ -68,12 +75,13 @@ export async function GET(request: NextRequest) {
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const ymd = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ }); // calendar date in Tallinn
 const day = (d: Date) => d.toLocaleDateString("en-GB", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" });
 
 function lastRunText(i: Item, now: number): string {
-  if (!i.last_started) return "never run";
-  const started = new Date(i.last_started);
-  const days = Math.floor((now - started.getTime()) / 86_400_000);
+  if (i.last_ms == null) return "never run";
+  const started = new Date(Number(i.last_ms));
+  const days = Math.round((Date.parse(ymd(now)) - Date.parse(ymd(started.getTime()))) / 86_400_000);
   const ago = days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
   return `last run ${ago} (${day(started)})${i.last_status === "error" ? ", failed" : ""}`;
 }
@@ -110,6 +118,6 @@ function render(due: Item[], later: Item[], now: number): string {
   <p style="font-size:14px;color:#475569;margin:0 0 8px">Copy a command into Claude Code to start that loop. One at a time.</p>
   ${due.length ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${dueRows}</table>` : ""}
   ${later.length ? `<h2 style="font-size:14px;margin:24px 0 4px;color:#334155">Coming up</h2><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${laterRows}</table>` : ""}
-  <p style="margin-top:28px"><a href="${DASHBOARD}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:9px 16px;border-radius:6px;font-size:14px">Open Loop Control Center</a></p>
+  <p style="margin-top:28px"><a href="${DASHBOARD}" style="display:inline-block;background:#3A5060;color:#ffffff;text-decoration:none;padding:9px 16px;border-radius:6px;font-size:14px">Open Loop Control Center</a></p>
 </div>`;
 }

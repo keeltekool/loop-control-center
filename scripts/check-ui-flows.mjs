@@ -33,6 +33,15 @@ for (const width of [375, 1440]) {
     const res = await page.request.get(`${BASE}/api/cron/reminder?preview=1`);
     expect(res.status() === 401, `answered ${res.status()}`);
   });
+  await step(`${width}: CRON_SECRET opens the reminder and nothing else`, async () => {
+    const cron = { Authorization: `Bearer ${process.env.CRON_SECRET}` };
+    const preview = await page.request.get(`${BASE}/api/cron/reminder?preview=1`, { headers: cron });
+    expect(preview.status() === 200, `reminder preview answered ${preview.status()}`);
+    for (const path of ["/api/dashboard", "/api/loops"]) {
+      const other = await page.request.get(`${BASE}${path}`, { headers: cron });
+      expect(other.status() === 401, `${path} answered ${other.status()} to CRON_SECRET`);
+    }
+  });
   await step(`${width}: login lands on the dashboard`, async () => {
     await page.getByPlaceholder("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
@@ -41,11 +50,16 @@ for (const width of [375, 1440]) {
     await page.getByText(/^\d+ loops?$/).first().waitFor({ timeout: 60000 });
   });
 
+  await step(`${width}: a logged-in session can preview the email but not send it`, async () => {
+    const send = await page.request.get(`${BASE}/api/cron/reminder`);
+    expect(send.status() === 403, `send without a bearer token answered ${send.status()}`);
+  });
   let emailDue = [];
+  let emailHtml = "";
   await step(`${width}: the email preview renders and lists its due loops`, async () => {
     const res = await page.request.get(`${BASE}/api/cron/reminder?preview=1`);
     expect(res.ok(), `preview answered ${res.status()}`);
-    const html = await res.text();
+    const html = (emailHtml = await res.text());
     expect(html.includes("Open Loop Control Center"), "no dashboard link in the email");
     const due = html.split("Coming up")[0];
     emailDue = [...due.matchAll(/font-weight:600;color:#0f172a">(.*?) <span/g)].map((m) => m[1].replace(/&amp;/g, "&"));
@@ -58,17 +72,21 @@ for (const width of [375, 1440]) {
     const names = await dueSection().locator("span.text-sm.font-medium").allTextContents();
     expect(names.length === emailDue.length && emailDue.every((n) => names.includes(n)), `dashboard [${names.join(" | ")}] vs email [${emailDue.join(" | ")}]`);
   });
-  await step(`${width}: a trigger chip in Due now copies its command`, async () => {
-    if (!emailDue.length) return;
-    const chip = dueSection().getByTitle(/^Copy/).first();
+  await step(`${width}: a trigger chip copies its command (Due now, or the loop list when nothing is due)`, async () => {
+    const chip = (emailDue.length ? dueSection() : page).getByTitle(/^Copy/).first();
     const command = (await chip.textContent()).trim();
     await chip.click();
-    await dueSection().getByText("copied ✓").waitFor();
+    await page.getByText("copied ✓").first().waitFor();
     expect((await page.evaluate(() => navigator.clipboard.readText())) === command, "clipboard doesn't hold the command");
   });
-  await step(`${width}: a switched-off loop is never due`, async () => {
+  await step(`${width}: a switched-off loop is listed as OFF and is never due`, async () => {
+    const OFF_LOOP = "Auto-roll playlists"; // switched off 2026-10-03
+    const row = page.locator("div.border-l-\\[3px\\]", { has: page.getByText(OFF_LOOP, { exact: true }) });
+    await row.first().waitFor();
+    expect((await row.first().getByText("OFF", { exact: true }).count()) === 1, `${OFF_LOOP} isn't marked OFF`);
     const names = (await dueSection().count()) ? await dueSection().locator("span.text-sm.font-medium").allTextContents() : [];
-    expect(!names.includes("Auto-roll playlists"), "a disabled loop is in Due now");
+    expect(!names.includes(OFF_LOOP), `${OFF_LOOP} is in Due now`);
+    expect(emailHtml && !emailHtml.includes(OFF_LOOP), `${OFF_LOOP} is in the email`);
   });
   await step(`${width}: no sideways scroll`, async () => {
     const sw = await page.evaluate(() => document.documentElement.scrollWidth);
